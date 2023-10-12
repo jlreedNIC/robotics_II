@@ -1,3 +1,7 @@
+fanuc_ethernet_ip_drivers
+fanuc_ros2_drivers
+workspace/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
