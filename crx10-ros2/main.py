@@ -135,10 +135,109 @@ def main():
     die2_conveyor_hover = [55.9, 27.3, -8.4, -2.7, -83.4, 64.1]
     die2_conveyor_grab = [55.9, 30.1, -20.4, -2.8, -71.4, 64.7]
 
-    while True:
+
+    # attempt to make while loop better
+    try:
+        while True:
+            # ------
+            # reset robot to home position
+            # ------
+
+            node.send_joint_pose_goal(robot_home)   # go back to home position
+
+            cur_goal = ShunkGripper.Goal()  # make sure gripper is open
+            cur_goal.command = 'open'
+            node.send_goal(ShunkGripper, 'ShunkGripper', cur_goal)
+
+            # --------
+            # grab and move die one to conveyor
+            # --------
+
+            node.send_joint_pose_goal(die1_home_hover)  # hover over die one
+            node.send_joint_pose_goal(die1_home_grab)   # move to grab die
+            
+            cur_goal = ShunkGripper.Goal()  # grab die
+            cur_goal.command = 'close'
+            node.send_goal(ShunkGripper, 'ShunkGripper', cur_goal)
+
+            node.send_joint_pose_goal(die1_home_hover)      # hover over die 1 home (to make sure robot doesn't run into anything)
+            node.send_joint_pose_goal(die1_conveyor_hover)  # hover over conveyor 1
+            node.send_joint_pose_goal(die1_conveyor_grab)   # place die 1
+
+            cur_goal = ShunkGripper.Goal()  # let go of die
+            cur_goal.command = 'open'
+            node.send_goal(ShunkGripper, 'ShunkGripper', cur_goal)
+            
+            node.send_joint_pose_goal(die1_conveyor_hover)  # hover over conveyor 1 (don't run into anything)
+
+            # ------
+            # grab and move die 2 to conveyor
+            # ------
+
+            node.send_joint_pose_goal(die2_home_hover)  # hover over die 2
+            node.send_joint_pose_goal(die2_home_grab)   # move to grab die 2
+
+            cur_goal = ShunkGripper.Goal()  # grab die
+            cur_goal.command = 'close'
+            node.send_goal(ShunkGripper, 'ShunkGripper', cur_goal)
+
+            node.send_joint_pose_goal(die2_home_hover)      # hover over die 2
+            node.send_joint_pose_goal(die2_conveyor_hover)  # hover over conveyor 2
+            node.send_joint_pose_goal(die2_conveyor_grab)   # place die 2
+
+            cur_goal = ShunkGripper.Goal()  # let go of die
+            cur_goal.command = 'open'
+            node.send_goal(ShunkGripper, 'ShunkGripper', cur_goal)
+
+            node.send_joint_pose_goal(die2_conveyor_hover)  # hover over conveyor 2 (avoid collisions)
+
+            # ---------
+            # move die 1 back to home
+            # ---------
+
+            node.send_joint_pose_goal(die1_conveyor_hover)  # hover over conveyor 1
+            node.send_joint_pose_goal(die1_conveyor_grab)   # move to grab die 1
+
+            cur_goal = ShunkGripper.Goal()  # grab die
+            cur_goal.command = 'close'
+            node.send_goal(ShunkGripper, 'ShunkGripper', cur_goal)
+            
+            node.send_joint_pose_goal(die1_conveyor_hover)  # hover over conveyor 1 (avoid collisions)
+            node.send_joint_pose_goal(die1_home_hover)      # hover over die one home
+            node.send_joint_pose_goal(die1_home_grab)       # move to grab die
+            
+            cur_goal = ShunkGripper.Goal()  # let go die
+            cur_goal.command = 'open'
+            node.send_goal(ShunkGripper, 'ShunkGripper', cur_goal)
+
+            node.send_joint_pose_goal(die1_home_hover)      # hover over die one home (avoid collisions)
+
+            # ---------
+            # move die 2 back home
+            # ---------
+
+            node.send_joint_pose_goal(die2_conveyor_hover)  # hover over conveyor 2
+            node.send_joint_pose_goal(die2_conveyor_grab)   # move to grab die 2
+
+            cur_goal = ShunkGripper.Goal()  # grab die
+            cur_goal.command = 'close'
+            node.send_goal(ShunkGripper, 'ShunkGripper', cur_goal)
+            
+            node.send_joint_pose_goal(die2_conveyor_hover)  # hover over conveyor 2 (avoid collisions)
+            node.send_joint_pose_goal(die2_home_hover)      # hover over die 2 home
+            node.send_joint_pose_goal(die2_home_grab)       # move to grab die
+            
+            cur_goal = ShunkGripper.Goal()  # let go die
+            cur_goal.command = 'open'
+            node.send_goal(ShunkGripper, 'ShunkGripper', cur_goal)
+
+            node.send_joint_pose_goal(die2_home_hover)      # hover over die 2 home (avoid collisions)
+    except KeyboardInterrupt:
         # ------
-        # reset robot to home position
+        # reset robot
         # ------
+
+        print('KeyboardInterrupt, sending robot home and shutting down.')
 
         node.send_joint_pose_goal(robot_home)   # go back to home position
 
@@ -146,102 +245,10 @@ def main():
         cur_goal.command = 'open'
         node.send_goal(ShunkGripper, 'ShunkGripper', cur_goal)
 
-        # --------
-        # grab and move die one to conveyor
-        # --------
+        # shut down node
+        node.destroy_node()
+        rclpy.shutdown()
 
-        node.send_joint_pose_goal(die1_home_hover)  # hover over die one
-        node.send_joint_pose_goal(die1_home_grab)   # move to grab die
-        
-        cur_goal = ShunkGripper.Goal()  # grab die
-        cur_goal.command = 'close'
-        node.send_goal(ShunkGripper, 'ShunkGripper', cur_goal)
-
-        node.send_joint_pose_goal(die1_home_hover)      # hover over die 1 home (to make sure robot doesn't run into anything)
-        node.send_joint_pose_goal(die1_conveyor_hover)  # hover over conveyor 1
-        node.send_joint_pose_goal(die1_conveyor_grab)   # place die 1
-
-        cur_goal = ShunkGripper.Goal()  # let go of die
-        cur_goal.command = 'open'
-        node.send_goal(ShunkGripper, 'ShunkGripper', cur_goal)
-        
-        node.send_joint_pose_goal(die1_conveyor_hover)  # hover over conveyor 1 (don't run into anything)
-
-        # ------
-        # grab and move die 2 to conveyor
-        # ------
-
-        node.send_joint_pose_goal(die2_home_hover)  # hover over die 2
-        node.send_joint_pose_goal(die2_home_grab)   # move to grab die 2
-
-        cur_goal = ShunkGripper.Goal()  # grab die
-        cur_goal.command = 'close'
-        node.send_goal(ShunkGripper, 'ShunkGripper', cur_goal)
-
-        node.send_joint_pose_goal(die2_home_hover)      # hover over die 2
-        node.send_joint_pose_goal(die2_conveyor_hover)  # hover over conveyor 2
-        node.send_joint_pose_goal(die2_conveyor_grab)   # place die 2
-
-        cur_goal = ShunkGripper.Goal()  # let go of die
-        cur_goal.command = 'open'
-        node.send_goal(ShunkGripper, 'ShunkGripper', cur_goal)
-
-        node.send_joint_pose_goal(die2_conveyor_hover)  # hover over conveyor 2 (avoid collisions)
-
-        # ---------
-        # move die 1 back to home
-        # ---------
-
-        node.send_joint_pose_goal(die1_conveyor_hover)  # hover over conveyor 1
-        node.send_joint_pose_goal(die1_conveyor_grab)   # move to grab die 1
-
-        cur_goal = ShunkGripper.Goal()  # grab die
-        cur_goal.command = 'close'
-        node.send_goal(ShunkGripper, 'ShunkGripper', cur_goal)
-        
-        node.send_joint_pose_goal(die1_conveyor_hover)  # hover over conveyor 1 (avoid collisions)
-        node.send_joint_pose_goal(die1_home_hover)      # hover over die one home
-        node.send_joint_pose_goal(die1_home_grab)       # move to grab die
-        
-        cur_goal = ShunkGripper.Goal()  # let go die
-        cur_goal.command = 'open'
-        node.send_goal(ShunkGripper, 'ShunkGripper', cur_goal)
-
-        node.send_joint_pose_goal(die1_home_hover)      # hover over die one home (avoid collisions)
-
-        # ---------
-        # move die 2 back home
-        # ---------
-
-        node.send_joint_pose_goal(die2_conveyor_hover)  # hover over conveyor 2
-        node.send_joint_pose_goal(die2_conveyor_grab)   # move to grab die 2
-
-        cur_goal = ShunkGripper.Goal()  # grab die
-        cur_goal.command = 'close'
-        node.send_goal(ShunkGripper, 'ShunkGripper', cur_goal)
-        
-        node.send_joint_pose_goal(die2_conveyor_hover)  # hover over conveyor 2 (avoid collisions)
-        node.send_joint_pose_goal(die2_home_hover)      # hover over die 2 home
-        node.send_joint_pose_goal(die2_home_grab)       # move to grab die
-        
-        cur_goal = ShunkGripper.Goal()  # let go die
-        cur_goal.command = 'open'
-        node.send_goal(ShunkGripper, 'ShunkGripper', cur_goal)
-
-        node.send_joint_pose_goal(die2_home_hover)      # hover over die 2 home (avoid collisions)
-    
-    # ------
-    # reset robot
-    # ------
-
-    node.send_joint_pose_goal(robot_home)   # go back to home position
-
-    cur_goal = ShunkGripper.Goal()  # make sure gripper is open
-    cur_goal.command = 'open'
-    node.send_goal(ShunkGripper, 'ShunkGripper', cur_goal)
-
-    # shut down node
-    rclpy.shutdown()
 
 if __name__ == '__main__':
     print('--PYTHON SCRIPT--')
