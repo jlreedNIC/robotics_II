@@ -23,21 +23,20 @@ from action_msgs.msg import GoalStatus
 class MyNode(Node):
     """ A class that will create a single node, and reuse a single action client, to move a robot.
     """
-    def __init__(self, namespace:str):
-        """Initializes MyNode class with a given namespace. Has a single action client
+    def __init__(self):
+        """Initializes MyNode class Has a single action client
 
         :param str namespace: what the namespace of robot is
         """
         # call superclass init
         super().__init__('ros2_test')
 
-        print(f"Constructing '{namespace}' node.")
-        self._namespace = namespace
         self.result = None
 
         self._action_client = None
+
     def send_joint_pose_goal(self, joints:list):
-        """_summary_
+        """ Function to pass a list of joints into Goal object and send to action server.
 
         :param list joints: array of floats for joint positions
         """
@@ -122,9 +121,7 @@ class MyNode(Node):
         
 def main():
     rclpy.init()
-    bill_ip = "129.101.98.214"
-    dj_ip = "129.101.98.215"
-    node = MyNode(bill_ip)
+    node = MyNode()
 
     # positions
     robot_home = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
@@ -134,14 +131,13 @@ def main():
     die1_conveyor_grab = [76.8, 16.5, -28.4, -3.2, -62.1, 46.1]
 
     die2_home_hover = [29.1, 29.3, 1.7, -3.3, -91.7, 1.9]
-    # die2_home_hover = [29.1, 35.0, -26.1, -3.7, -63.9, 3.7]
     die2_home_grab = [29.1, 39.9, -35.7, -4.1, -54.4, 4.5]
     die2_conveyor_hover = [55.9, 27.3, -8.4, -2.7, -83.4, 64.1]
     die2_conveyor_grab = [55.9, 30.1, -20.4, -2.8, -71.4, 64.7]
 
     while True:
         # ------
-        # reset robot
+        # reset robot to home position
         # ------
 
         node.send_joint_pose_goal(robot_home)   # go back to home position
