@@ -17,13 +17,28 @@ import rclpy
 from rclpy.node import Node
 from rclpy.action.client import ActionClient
 
+
+from rclpy.qos import qos_profile_sensor_data
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+
 import irobot_create_msgs
 from irobot_create_msgs.action import DriveDistance, Undock, Dock, RotateAngle
 from irobot_create_msgs.action import AudioNoteSequence
 from irobot_create_msgs.msg import AudioNote, AudioNoteVector
 from builtin_interfaces.msg import Duration
 
+from threading import RLock
+from rclpy.executors import MultiThreadedExecutor
+from dock_node import Docker
+from key_commander import KeyCommander
+from pynput.keyboard import KeyCode
+
 from action_msgs.msg import GoalStatus
+
+# global var
+rclpy.init()
+namespace = "create3_05B9"
+docker = Docker(namespace)
 
 class MyNode(Node):
     """ A class that will create a single node, and reuse a single action client, to move a robot.
@@ -36,12 +51,48 @@ class MyNode(Node):
         # call superclass init
         super().__init__('walker')
 
+        # 2 Seperate Callback Groups for handling the bumper Subscription and Action Clients
+        cb_Subscripion = MutuallyExclusiveCallbackGroup()
+        #cb_Action = cb_Subscripion
+        self.cb_action =MutuallyExclusiveCallbackGroup()
+
         print(f"Constructing '{namespace}' node.")
         self._namespace = namespace
         self.result = None
 
         self._action_client = None
     
+    def listener_callback(self, msg):
+        '''
+        This function is called every time self.subscription gets a message
+        from the Robot. Here it parses the message from the Robot and if its
+        a 'bump' message, cancel the current action. 
+
+        For this to work, make sure you have:
+        ros__parameters:
+            reflexes_enabled: false
+        in your Application Configuration Parameters File!!!
+        '''
+
+        # If it wasn't doing anything, there's nothing to cancel
+        # if self._goal_uuid is None:
+        #     return
+
+        print(msg)
+        try:
+            print(f'opcode: {msg.opcode}')
+            print(f'sensor: {msg.sensor}')
+        except Exception as e:
+            # print('not iropcode')
+            pass
+        
+        try:
+            print(f'is_docked = {msg.is_docked}')
+            print(f'dock_visible = {msg.dock_visible}')
+        except Exception as e:
+            # print('not dock status')
+            pass
+
     def send_goal(self, action_type, action_name:str, goal):
         """Sets the action client and sends the goal to the robot. Spins node until result callback is received.
 
@@ -69,7 +120,8 @@ class MyNode(Node):
         # spin node until done
         self.result = None
         while self.result == None:
-            rclpy.spin_once(self)
+            # rclpy.spin_once(self)
+            pass
 
         # goal done
         self.get_logger().warning(f"{action_name} action done")
@@ -107,84 +159,109 @@ class MyNode(Node):
             self.get_logger().info("Goal Succeeded! Result info hidden.")
         else:
             self.get_logger().error(f"Goal Failed with status: {status}")
-        
-def main():
-    rclpy.init()
-    namespace = "create3_05B9"
-    node = MyNode(namespace)
 
-    # # undock
-    # cur_goal = Undock.Goal()
-    # node.send_goal(Undock, 'undock', cur_goal)
+    def drive(self):
+        # undock
+        # cur_goal = Undock.Goal()
+        # self.send_goal(Undock, 'undock', cur_goal)
 
-    # # drive for 1m
-    # cur_goal = DriveDistance.Goal()
-    # cur_goal.distance = 1.0
-    # node.send_goal(DriveDistance, 'drive_distance', cur_goal)
+        # drive for 1m
+        # cur_goal = DriveDistance.Goal()
+        # cur_goal.distance = 1.0
+        # self.send_goal(DriveDistance, 'drive_distance', cur_goal)
 
-    # # turn 45deg
-    # cur_goal = RotateAngle.Goal()
-    # cur_goal.angle = 3.14159/4
-    # node.send_goal(RotateAngle, 'rotate_angle', cur_goal)
+        # turn 45deg
+        cur_goal = RotateAngle.Goal()
+        cur_goal.angle = 3.14159/4
+        self.send_goal(RotateAngle, 'rotate_angle', cur_goal)
 
-    # # drive 0.5m
-    # cur_goal = DriveDistance.Goal()
-    # cur_goal.distance = 0.5
-    # node.send_goal(DriveDistance, 'drive_distance', cur_goal)
+        # drive 0.5m
+        cur_goal = DriveDistance.Goal()
+        cur_goal.distance = 0.5
+        self.send_goal(DriveDistance, 'drive_distance', cur_goal)
 
-    # # rotate 130deg
-    # cur_goal = RotateAngle.Goal()
-    # cur_goal.angle = 3.14159*3/4
-    # node.send_goal(RotateAngle, 'rotate_angle', cur_goal)
+        # rotate 130deg
+        cur_goal = RotateAngle.Goal()
+        cur_goal.angle = 3.14159*3/4
+        self.send_goal(RotateAngle, 'rotate_angle', cur_goal)
 
-    # # drive 0.6m
-    # cur_goal = DriveDistance.Goal()
-    # cur_goal.distance = 0.6
-    # node.send_goal(DriveDistance, 'drive_distance', cur_goal)
+        # drive 0.6m
+        cur_goal = DriveDistance.Goal()
+        cur_goal.distance = 0.6
+        self.send_goal(DriveDistance, 'drive_distance', cur_goal)
 
-    # # dock robot
-    # cur_goal = Dock.Goal()
-    # node.send_goal(Dock, 'dock', cur_goal)
+        # dock robot
+        cur_goal = Dock.Goal()
+        self.send_goal(Dock, 'dock', cur_goal)
 
 
-    cur_goal = AudioNoteSequence.Goal()
-    # happy sound notes
-    notes = [
-        AudioNote(frequency=392, max_runtime=Duration(sec=0, nanosec=177500000)),
-        AudioNote(frequency=523, max_runtime=Duration(sec=0, nanosec=355000000)),
-        AudioNote(frequency=587, max_runtime=Duration(sec=0, nanosec=177500000)),
-        AudioNote(frequency=784, max_runtime=Duration(sec=0, nanosec=533000000))
-    ]
+        cur_goal = AudioNoteSequence.Goal()
+        # happy sound notes
+        notes = [
+            AudioNote(frequency=392, max_runtime=Duration(sec=0, nanosec=177500000)),
+            AudioNote(frequency=523, max_runtime=Duration(sec=0, nanosec=355000000)),
+            AudioNote(frequency=587, max_runtime=Duration(sec=0, nanosec=177500000)),
+            AudioNote(frequency=784, max_runtime=Duration(sec=0, nanosec=533000000))
+        ]
 
-    # sad sound notes
-    notes = [
-        AudioNote(frequency=82, max_runtime=Duration(sec=1, nanosec=0)),
-        AudioNote(frequency=87, max_runtime=Duration(sec=1, nanosec=0))
-    ]
+        # sad sound notes
+        # notes = [
+        #     AudioNote(frequency=82, max_runtime=Duration(sec=1, nanosec=0)),
+        #     AudioNote(frequency=87, max_runtime=Duration(sec=1, nanosec=0))
+        # ]
 
-    # zelda chest sound notes
-    notes = [
-        AudioNote(frequency=440, max_runtime=Duration(sec=0, nanosec=200000000)),
-        AudioNote(frequency=466, max_runtime=Duration(sec=0, nanosec=200000000)),
-        AudioNote(frequency=494, max_runtime=Duration(sec=0, nanosec=200000000)),
-        AudioNote(frequency=523, max_runtime=Duration(sec=1, nanosec=0))
-    ]
+        # zelda chest sound notes
+        # notes = [
+        #     AudioNote(frequency=440, max_runtime=Duration(sec=0, nanosec=200000000)),
+        #     AudioNote(frequency=466, max_runtime=Duration(sec=0, nanosec=200000000)),
+        #     AudioNote(frequency=494, max_runtime=Duration(sec=0, nanosec=200000000)),
+        #     AudioNote(frequency=523, max_runtime=Duration(sec=1, nanosec=0))
+        # ]
 
-    # frequencies = [392, 523, 587, 784]
-    # notes = [AudioNote() for x in frequencies]
-    # for i in range(len(notes)):
-    #     notes[i].frequency = frequencies[i]
-    #     notes[i].max_runtime = Duration()
-    #     notes[i].max_runtime.sec = 0
-    #     notes[i].max_runtime.nanosec = 355000000
-    note_sequence = AudioNoteVector()
-    note_sequence.notes = notes
-    cur_goal.iterations = 1
-    cur_goal.note_sequence = note_sequence
-    node.send_goal(AudioNoteSequence, 'audio_note_sequence', cur_goal)
+        # zelda's lullaby
+        # notes = [
+        #     AudioNote(frequency=493, max_runtime=Duration(sec=1, nanosec=200000000)),
+        #     AudioNote(frequency=587, max_runtime=Duration(sec=0, nanosec=500000000)),
+        #     AudioNote(frequency=440, max_runtime=Duration(sec=1, nanosec=200000000)),
 
-    # shut down node
-    rclpy.shutdown()
+        #     AudioNote(frequency=392, max_runtime=Duration(sec=0, nanosec=300000000)),
+        #     AudioNote(frequency=440, max_runtime=Duration(sec=0, nanosec=300000000)),
+
+        #     AudioNote(frequency=493, max_runtime=Duration(sec=1, nanosec=200000000)),
+        #     AudioNote(frequency=587, max_runtime=Duration(sec=0, nanosec=500000000)),
+        #     AudioNote(frequency=440, max_runtime=Duration(sec=1, nanosec=200000000))
+        # ]
+
+        note_sequence = AudioNoteVector()
+        note_sequence.notes = notes
+        cur_goal.iterations = 1
+        cur_goal.note_sequence = note_sequence
+        self.send_goal(AudioNoteSequence, 'audio_note_sequence', cur_goal)
+
+def main():    
+    roomba = MyNode(namespace)
+    
+
+    exec = MultiThreadedExecutor(3)
+    exec.add_node(roomba)
+    exec.add_node(docker)
+
+    keycom = KeyCommander([
+        (KeyCode(char='s'), roomba.drive),
+    ])
+    print("'s' to start")
+    # roomba.drive()
+    
+    try:
+        exec.spin() # execute callbacks until shutdown or destroy is called
+    except KeyboardInterrupt:
+        print('KeyboardInterrupt, shutting down.')
+        print("Shutting down executor")
+        exec.shutdown()
+        print("Destroying Monster Node")
+        m.destroy_node()
+        print("Shutting down RCLPY")
+        rclpy.try_shutdown()
 
 if __name__ == '__main__':
     print('--PYTHON SCRIPT--')
