@@ -113,38 +113,38 @@ def main():
     namespace = "create3_05B9"
     node = MyNode(namespace)
 
-    # undock
-    cur_goal = Undock.Goal()
-    node.send_goal(Undock, 'undock', cur_goal)
+    # # undock
+    # cur_goal = Undock.Goal()
+    # node.send_goal(Undock, 'undock', cur_goal)
 
-    # drive for 1m
-    cur_goal = DriveDistance.Goal()
-    cur_goal.distance = 1.0
-    node.send_goal(DriveDistance, 'drive_distance', cur_goal)
+    # # drive for 1m
+    # cur_goal = DriveDistance.Goal()
+    # cur_goal.distance = 1.0
+    # node.send_goal(DriveDistance, 'drive_distance', cur_goal)
 
-    # turn 45deg
-    cur_goal = RotateAngle.Goal()
-    cur_goal.angle = 3.14159/4
-    node.send_goal(RotateAngle, 'rotate_angle', cur_goal)
+    # # turn 45deg
+    # cur_goal = RotateAngle.Goal()
+    # cur_goal.angle = 3.14159/4
+    # node.send_goal(RotateAngle, 'rotate_angle', cur_goal)
 
-    # drive 0.5m
-    cur_goal = DriveDistance.Goal()
-    cur_goal.distance = 0.5
-    node.send_goal(DriveDistance, 'drive_distance', cur_goal)
+    # # drive 0.5m
+    # cur_goal = DriveDistance.Goal()
+    # cur_goal.distance = 0.5
+    # node.send_goal(DriveDistance, 'drive_distance', cur_goal)
 
-    # rotate 130deg
-    cur_goal = RotateAngle.Goal()
-    cur_goal.angle = 3.14159*3/4
-    node.send_goal(RotateAngle, 'rotate_angle', cur_goal)
+    # # rotate 130deg
+    # cur_goal = RotateAngle.Goal()
+    # cur_goal.angle = 3.14159*3/4
+    # node.send_goal(RotateAngle, 'rotate_angle', cur_goal)
 
-    # drive 0.6m
-    cur_goal = DriveDistance.Goal()
-    cur_goal.distance = 0.6
-    node.send_goal(DriveDistance, 'drive_distance', cur_goal)
+    # # drive 0.6m
+    # cur_goal = DriveDistance.Goal()
+    # cur_goal.distance = 0.6
+    # node.send_goal(DriveDistance, 'drive_distance', cur_goal)
 
-    # dock robot
-    cur_goal = Dock.Goal()
-    node.send_goal(Dock, 'dock', cur_goal)
+    # # dock robot
+    # cur_goal = Dock.Goal()
+    # node.send_goal(Dock, 'dock', cur_goal)
 
 
     cur_goal = AudioNoteSequence.Goal()
@@ -164,9 +164,9 @@ def main():
 
     # zelda chest sound notes
     notes = [
-        AudioNote(frequency=440, max_runtime=Duration(sec=0, nanosec=250000000)),
-        AudioNote(frequency=466, max_runtime=Duration(sec=0, nanosec=250000000)),
-        AudioNote(frequency=494, max_runtime=Duration(sec=0, nanosec=250000000)),
+        AudioNote(frequency=440, max_runtime=Duration(sec=0, nanosec=200000000)),
+        AudioNote(frequency=466, max_runtime=Duration(sec=0, nanosec=200000000)),
+        AudioNote(frequency=494, max_runtime=Duration(sec=0, nanosec=200000000)),
         AudioNote(frequency=523, max_runtime=Duration(sec=1, nanosec=0))
     ]
 
