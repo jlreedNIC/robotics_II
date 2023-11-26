@@ -1,15 +1,12 @@
 #----------------------------------------
 #
-# @file     main.py
+# @file     dock_node.py
 # @author   Jordan Reed
-# @date     Jan 30, 2023
+# @date     Nov 26, 2023
 # @class    Robotics
 
-# @desc     This program will send goals to the Create3 robot so the 
-#           robot will move forward 1m, turn 45 degree, move 
-#           forward .5m, and return home.
+# @desc     Node to dock the create3 without an action.
 #
-#       Much help from James
 #
 # ------------------------------------------
 
@@ -24,7 +21,7 @@ import irobot_create_msgs
 from irobot_create_msgs.msg import DockStatus, IrIntensity, IrIntensityVector, IrOpcode
 
 
-class MyNode(Node):
+class Docker(Node):
     """ A class that will create a single node, and reuse a single action client, to move a robot.
     """
     def __init__(self, namespace:str):
@@ -35,10 +32,11 @@ class MyNode(Node):
         # call superclass init
         super().__init__('docker')
 
-        self.vel_pub = self.create_publisher(String, 'cmd_vel', 10)
+        self.vel_pub = self.create_publisher(Twist, f'/{namespace}/cmd_vel', 10)
 
         self.dock_sub = self.create_subscription(DockStatus, f'/{namespace}/dock_status', self.listener, qos_profile_sensor_data)
         self.opcode_sub = self.create_subscription(IrOpcode, f'/{namespace}/ir_opcode', self.listener, qos_profile_sensor_data)
+        # self.vel_sub = self.create_subscription(Twist, f'/{namespace}/cmd_vel' , self.listener, qos_profile_sensor_data)
 
         print(f"Constructing '{namespace}' node.")
         self._namespace = namespace
@@ -58,83 +56,102 @@ class MyNode(Node):
             self._opcode = msg.opcode
             self._sensor = msg.sensor
         except Exception as e:
-            # print('not iropcode')
+            print('not iropcode')
             pass
         
         try:
             self._is_docked = msg.is_docked
             self._dock_visible = msg.dock_visible
         except Exception as e:
-            # print('not dock status')
+            print('not dock status')
             pass
+        # print(f'is docked: {self._is_docked}, dock visible: {self._dock_visible}, opcode: {self._opcode}, sensor: {self._sensor}')
     
-    def publish(self, data):
+    def publish_msg(self, data):
         msg = String()
-        msg.data = data
-        self.vel_pub.publish(msg)
+        msg.data = f'{data}'
+        # print(msg)
+        # print(type(msg))
+        self.vel_pub.publish(data)
     
     def create_twist(self, linear, angular):
+        # print('creating twist...')
+        # msg_type = "geometry_msgs/msg/Twist"
+        # msg = f'"{{linear: {{x: {float(linear)}, y: 0.0, z: 0.0}}, angular: {{x: 0.0, y: 0.0, z: {float(angular)}}}}}"'
         twist = Twist()
         twist.linear.x = float(linear)
+        twist.linear.y = 0.0
+        twist.linear.z = 0.0
+        twist.angular.x = 0.0
+        twist.angular.y = 0.0
         twist.angular.z = float(angular)
+        return twist
 
-        return twist 
+        # return f'{msg_type} {msg}' 
 
     def dock(self):
+        print('starting pub/sub dock...')
+
+        print('find dock')
         # find dock
+        rotate_counter = 0
         while self._dock_visible == False:
             # rotate by pub
             twist = self.create_twist(0, 10)
-            self.publish(twist)
-            pass
-            # find way to keep track of if made 360 degrees
+            self.publish_msg(twist)
+            rotate_counter += 10
 
-        # wiggle until spot is found for both red and green
-        if self._opcode == 168: # red buoy
-            counter = 0
-            # rotate between force field and red 3 times
-            for i in range(3):
-                # rotate until force field (161)
-                # rotate until red buoy (168)
-                pass
-        elif self._opcode == 164: # green buoy
-            # rotate between force field and green 3 times
-            for i in range(3):
-                # rotate until force field (161)
-                # rotate until red buoy (168)
-                pass
+            # if rotate_counter > 300:
+            #     return False
         
-        # move forward slowly until in front of docking station
-        # this logic may need changed
-        # while sensor 0 and force field don't intersect OR
-        # sensor 0 doesn't read both buoys
-        while (self._opcode != 161 and self._sensor != 0) or (self._sensor != 0 and self._opcode != 172):
-            # move forward slowly 
-            pass
 
-        # rotate until sensor 1 and both buoy lined up
-        while self._opcode != 172 and self._sensor != 1:
-            # rotate
-            pass
+        print('wiggle until sweet spot')
+        # wiggle until spot is found for both red and green
+        # if self._opcode == 168: # red buoy
+        #     counter = 0
+        #     # rotate between force field and red 3 times
+        #     for i in range(3):
+        #         # rotate until force field (161)
+        #         # rotate until red buoy (168)
+        #         pass
+        # elif self._opcode == 164: # green buoy
+        #     # rotate between force field and green 3 times
+        #     for i in range(3):
+        #         # rotate until force field (161)
+        #         # rotate until red buoy (168)
+        #         pass
+        
+        # # move forward slowly until in front of docking station
+        # # this logic may need changed
+        # # while sensor 0 and force field don't intersect OR
+        # # sensor 0 doesn't read both buoys
+        # while (self._opcode != 161 and self._sensor != 0) or (self._sensor != 0 and self._opcode != 172):
+        #     # move forward slowly 
+        #     pass
+
+        # # rotate until sensor 1 and both buoy lined up
+        # while self._opcode != 172 and self._sensor != 1:
+        #     # rotate
+        #     pass
 
         # move forward until dock not visible and is docked true
         
 
         
         
-def main():
-    rclpy.init()
-    namespace = "create3_05B9"
-    node = MyNode(namespace)
+# def main():
+#     rclpy.init()
+#     namespace = "create3_05B9"
+#     node = Docker(namespace)
 
-    print('doing something here')
+#     print('doing something here')
 
-    import time 
-    time.sleep(2)
+#     import time 
+#     time.sleep(2)
 
-    # shut down node
-    rclpy.shutdown()
+#     # shut down node
+#     rclpy.shutdown()
 
-if __name__ == '__main__':
-    print('--PYTHON SCRIPT--')
-    main()
+# if __name__ == '__main__':
+#     print('--PYTHON SCRIPT--')
+#     main()
