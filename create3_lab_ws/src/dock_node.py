@@ -19,6 +19,8 @@ from geometry_msgs.msg import Twist
 
 import irobot_create_msgs
 from irobot_create_msgs.msg import DockStatus, IrIntensity, IrIntensityVector, IrOpcode
+import time
+from nav_msgs.msg import Odometry
 
 
 class Docker(Node):
@@ -36,14 +38,15 @@ class Docker(Node):
 
         self.dock_sub = self.create_subscription(DockStatus, f'/{namespace}/dock_status', self.listener, qos_profile_sensor_data)
         self.opcode_sub = self.create_subscription(IrOpcode, f'/{namespace}/ir_opcode', self.listener, qos_profile_sensor_data)
+        # self.odom_sub = self.create_subscription(Odometry, f'/{namespace}/odom', self.listener, qos_profile_sensor_data)
         # self.vel_sub = self.create_subscription(Twist, f'/{namespace}/cmd_vel' , self.listener, qos_profile_sensor_data)
 
         print(f"Constructing '{namespace}' node.")
         self._namespace = namespace
         self._is_docked = False
         self._dock_visible = False
-        self._opcode = 0
-        self._sensor = 1
+        self._opcode = -1
+        self._sensor = -1
     
     def listener(self, msg):
         '''
@@ -55,15 +58,16 @@ class Docker(Node):
         try:
             self._opcode = msg.opcode
             self._sensor = msg.sensor
+            # print(msg)
         except Exception as e:
-            print('not iropcode')
+            # print('not iropcode')
             pass
         
         try:
             self._is_docked = msg.is_docked
             self._dock_visible = msg.dock_visible
         except Exception as e:
-            print('not dock status')
+            # print('not dock status')
             pass
         # print(f'is docked: {self._is_docked}, dock visible: {self._dock_visible}, opcode: {self._opcode}, sensor: {self._sensor}')
     
@@ -89,36 +93,128 @@ class Docker(Node):
 
         # return f'{msg_type} {msg}' 
 
+    def reset_var(self):
+        self._sensor = -1
+        self._opcode = -1
+    
+    def rotate_until_dock_found(self):
+        print('find dock')
+        rotate = 1
+        for i in range(3):
+            twist = self.create_twist(0, rotate)
+            self.publish_msg(twist)
+        # find dock
+        rotate_counter = 0
+        # while self._dock_visible == False and self._opcode == 0:
+        while self._opcode != 164 and self._opcode != 168 and self._opcode != 172 and self._opcode != 161:
+            # rotate by pub for about 360 degrees
+            twist = self.create_twist(0, rotate)
+            self.publish_msg(twist)
+
+            rotate_counter += 1
+            time.sleep(.5)
+
+            if rotate_counter > 14:
+                print('dock not found')
+                print(f'opcode: {self._opcode}, sensor: {self._sensor}')
+                return False
+
     def dock(self):
         print('starting pub/sub dock...')
 
-        print('find dock')
-        # find dock
-        rotate_counter = 0
-        while self._dock_visible == False:
-            # rotate by pub
-            twist = self.create_twist(0, 10)
-            self.publish_msg(twist)
-            rotate_counter += 10
-
-            # if rotate_counter > 300:
-            #     return False
+        result = self.rotate_until_dock_found()
+        time.sleep(.5)
+        if result == False:
+            return result
         
+        if self._opcode == 161:
+            print('dock in force field')
+            for i in range(2):
+                twist = self.create_twist(0, -1)
+                self.publish_msg(twist)
+                time.sleep(.5)
+
+            print('move forward')
+            twist = self.create_twist(1, 0)
+            self.publish_msg(twist)
+            time.sleep(.5)
+
+            result = self.rotate_until_dock_found()
+            if result == False or self._opcode == 161:
+                return result
+        
+        print(f'opcode: {self._opcode}, sensor: {self._sensor}')
+        time.sleep(2)
 
         print('wiggle until sweet spot')
+        # generalize the if statements for wiggle
+        buoy_found = self._opcode
+        print(f'starting with {buoy_found} buoy')
+        for i in range(2):
+            print(f'{i}: rotate towards gray')
+            while self._opcode != 161 or self._opcode != 172: # or self._sensor != 1:
+                twist = self.create_twist(0, 1)
+                self.publish_msg(twist)
+                time.sleep(.5)
+            
+            print(f'   rotate towards {buoy_found}')
+            while self._opcode != buoy_found or self._opcode != 172: # or self._sensor != 1:
+                twist = self.create_twist(0, -1)
+                self.publish_msg(twist)
+                time.sleep(.5)
+        print(f'opcode: {self._opcode}, sensor: {self._sensor}')
+
+        # move forward until in front of dock
+        print('moving in front of dock')
+        while self._opcode != 172:
+            twist = self.create_twist(1, 0)
+            self.publish_msg(twist)
+            time.sleep(.5)
+        
+        self.reset_var()
+        
+        # rotate until sensor 1 and both
+        print('rotating to face dock')
+        while self._sensor != 1 and self._opcode != 172:
+            twist = self.create_twist(0, 1)
+            self.publish_msg(twist)
+            time.sleep(.5)
+
         # wiggle until spot is found for both red and green
         # if self._opcode == 168: # red buoy
+
+        #     print('started with red buoy')
         #     counter = 0
         #     # rotate between force field and red 3 times
         #     for i in range(3):
         #         # rotate until force field (161)
+        #         print('rotate towards gray')
+        #         while self._opcode != 161:
+        #             twist = self.create_twist(0, -1)
+        #             self.publish_msg(twist)
+        #             time.sleep(.5)
         #         # rotate until red buoy (168)
-        #         pass
+        #         print('rotate towards red')
+        #         while self._opcode != 168:
+        #             twist = self.create_twist(0, 1)
+        #             self.publish_msg(twist)
+        #             time.sleep(.5)
         # elif self._opcode == 164: # green buoy
+        #     print('started with green buoy')
         #     # rotate between force field and green 3 times
         #     for i in range(3):
         #         # rotate until force field (161)
-        #         # rotate until red buoy (168)
+        #         print('rotate towards gray')
+        #         while self._opcode != 161:
+        #             twist = self.create_twist(0, 1)
+        #             self.publish_msg(twist)
+        #             time.sleep(.5)
+        #         # rotate until green buoy (164)
+        #         print('rotate towards green')
+        #         while self._opcode != 164:
+        #             twist = self.create_twist(0, -1)
+        #             self.publish_msg(twist)
+        #             time.sleep(.5)
         #         pass
         
         # # move forward slowly until in front of docking station
