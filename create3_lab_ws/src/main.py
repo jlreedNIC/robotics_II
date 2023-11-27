@@ -2,30 +2,29 @@
 #
 # @file     main.py
 # @author   Jordan Reed
-# @date     Jan 30, 2023
+# @date     Nov, 2023
 # @class    Robotics
 
-# @desc     This program will send goals to the Create3 robot so the 
-#           robot will move forward 1m, turn 45 degree, move 
-#           forward .5m, and return home.
-#
-#       Much help from James
+# @desc     This program will send goals to the Create3 robot.
 #
 # ------------------------------------------
 
+
+import random
 import rclpy
 from rclpy.node import Node
 from rclpy.action.client import ActionClient
 
 
-from rclpy.qos import qos_profile_sensor_data
+# from rclpy.qos import qos_profile_sensor_data
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
-import irobot_create_msgs
-from irobot_create_msgs.action import DriveDistance, Undock, Dock, RotateAngle
+# import irobot_create_msgs
+from irobot_create_msgs.action import DriveDistance, Undock, Dock, RotateAngle, NavigateToPosition
 from irobot_create_msgs.action import AudioNoteSequence
 from irobot_create_msgs.msg import AudioNote, AudioNoteVector
 from builtin_interfaces.msg import Duration
+from music_node import Music
 
 from threading import RLock
 from rclpy.executors import MultiThreadedExecutor
@@ -35,10 +34,15 @@ from pynput.keyboard import KeyCode
 
 from action_msgs.msg import GoalStatus
 
+from irobot_create_msgs.srv import ResetPose
+from geometry_msgs.msg import PoseStamped
+
 # global var
 rclpy.init()
 namespace = "create3_05B9"
 docker = Docker(namespace)
+music_player = Music(namespace)
+lock = RLock()
 
 class MyNode(Node):
     """ A class that will create a single node, and reuse a single action client, to move a robot.
@@ -52,7 +56,7 @@ class MyNode(Node):
         super().__init__('walker')
 
         # 2 Seperate Callback Groups for handling the bumper Subscription and Action Clients
-        cb_Subscripion = MutuallyExclusiveCallbackGroup()
+        self.cb_music_action = MutuallyExclusiveCallbackGroup()
         #cb_Action = cb_Subscripion
         self.cb_action =MutuallyExclusiveCallbackGroup()
 
@@ -61,48 +65,33 @@ class MyNode(Node):
         self.result = None
 
         self._action_client = None
+
+        # in order to reset pose
+        self._reset_pose = self.create_client( ResetPose, f'/{self._namespace}/reset_pose')
+        self.req = ResetPose.Request()
+
+        self.home = PoseStamped()       # home location of robot
+        self.pose = PoseStamped()
     
-    def listener_callback(self, msg):
-        '''
-        This function is called every time self.subscription gets a message
-        from the Robot. Here it parses the message from the Robot and if its
-        a 'bump' message, cancel the current action. 
-
-        For this to work, make sure you have:
-        ros__parameters:
-            reflexes_enabled: false
-        in your Application Configuration Parameters File!!!
-        '''
-
-        # If it wasn't doing anything, there's nothing to cancel
-        # if self._goal_uuid is None:
-        #     return
-
-        print(msg)
-        try:
-            print(f'opcode: {msg.opcode}')
-            print(f'sensor: {msg.sensor}')
-        except Exception as e:
-            # print('not iropcode')
-            pass
-        
-        try:
-            print(f'is_docked = {msg.is_docked}')
-            print(f'dock_visible = {msg.dock_visible}')
-        except Exception as e:
-            # print('not dock status')
-            pass
-
-    def send_goal(self, action_type, action_name:str, goal):
+    def send_goal(self, action_type, action_name:str, goal, callback_group=None):
         """Sets the action client and sends the goal to the robot. Spins node until result callback is received.
 
         :param action_type: Action type of the action to take
         :param str action_name: name of action to append to namespace command
         :param goal: goal object with necessary parameters to complete goal
         """
+        if callback_group == None:
+            callback_group = self.cb_action
+        if action_type == Undock:
+            # self.send_music_goal(undock_sound_notes)
+            music_player.send_music_goal('undock')
+        elif action_type == Dock:
+            # self.send_music_goal(docking_sound_notes)
+            music_player.send_music_goal('docking')
+
         self.get_logger().info(f"Sending goal for '{action_name}'")
         # create/reuse action client with new goal info
-        self._action_client = ActionClient(self, action_type, f'/{self._namespace}/{action_name}')
+        self._action_client = ActionClient(self, action_type, f'/{self._namespace}/{action_name}', callback_group=callback_group)
 
         # wait for server
         self.get_logger().warning("Waiting for server...")
@@ -119,7 +108,7 @@ class MyNode(Node):
 
         # spin node until done
         self.result = None
-        while self.result == None:
+        while self.result == None: # and action_type != AudioNoteSequence:
             # rclpy.spin_once(self)
             pass
 
@@ -159,20 +148,36 @@ class MyNode(Node):
             self.get_logger().info("Goal Succeeded! Result info hidden.")
         else:
             self.get_logger().error(f"Goal Failed with status: {status}")
-
+        
+        try:
+            # pos = DriveDistance.Result.pose
+            self.pose = future.result().pose
+            
+            # print(f'current pose: ({self.pose.pose.position.x}, {self.pose.pose.position.y})')
+        except Exception as e:
+            # print(f"error getting pose: {e}")
+            pass
+    
     def drive(self):
+        print('entered drive function')
+        self._reset_pose.call(self.req) # reset pose
         # undock
-        # cur_goal = Undock.Goal()
-        # self.send_goal(Undock, 'undock', cur_goal)
+        cur_goal = Undock.Goal()
+        self.send_goal(Undock, 'undock', cur_goal)
 
         # drive for 1m
-        # cur_goal = DriveDistance.Goal()
-        # cur_goal.distance = 1.0
-        # self.send_goal(DriveDistance, 'drive_distance', cur_goal)
+        cur_goal = DriveDistance.Goal()
+        cur_goal.distance = 1.0
+        self.send_goal(DriveDistance, 'drive_distance', cur_goal)
+
+        self.home = self.pose
+        self.home.pose.position.x -= .5
+
+        angle = random.uniform(-3.14, 3.14)
 
         # turn 45deg
         cur_goal = RotateAngle.Goal()
-        cur_goal.angle = 3.14159/4
+        cur_goal.angle = float(angle)
         self.send_goal(RotateAngle, 'rotate_angle', cur_goal)
 
         # drive 0.5m
@@ -180,76 +185,37 @@ class MyNode(Node):
         cur_goal.distance = 0.5
         self.send_goal(DriveDistance, 'drive_distance', cur_goal)
 
-        # rotate 130deg
-        cur_goal = RotateAngle.Goal()
-        cur_goal.angle = 3.14159*3/4
-        self.send_goal(RotateAngle, 'rotate_angle', cur_goal)
+        goal = NavigateToPosition.Goal()
+        goal.goal_pose = self.home
+        self.send_goal(NavigateToPosition, 'navigate_to_position', goal)
 
-        # drive 0.6m
-        cur_goal = DriveDistance.Goal()
-        cur_goal.distance = 0.6
-        self.send_goal(DriveDistance, 'drive_distance', cur_goal)
 
         # dock robot
+        # try:
+        #     docker.dock()
+        # except Exception as e:
+        #     cur_goal = Dock.Goal()
+        #     self.send_goal(Dock, 'dock', cur_goal)
+
         cur_goal = Dock.Goal()
         self.send_goal(Dock, 'dock', cur_goal)
-
-
-        cur_goal = AudioNoteSequence.Goal()
-        # happy sound notes
-        notes = [
-            AudioNote(frequency=392, max_runtime=Duration(sec=0, nanosec=177500000)),
-            AudioNote(frequency=523, max_runtime=Duration(sec=0, nanosec=355000000)),
-            AudioNote(frequency=587, max_runtime=Duration(sec=0, nanosec=177500000)),
-            AudioNote(frequency=784, max_runtime=Duration(sec=0, nanosec=533000000))
-        ]
-
-        # sad sound notes
-        # notes = [
-        #     AudioNote(frequency=82, max_runtime=Duration(sec=1, nanosec=0)),
-        #     AudioNote(frequency=87, max_runtime=Duration(sec=1, nanosec=0))
-        # ]
-
-        # zelda chest sound notes
-        # notes = [
-        #     AudioNote(frequency=440, max_runtime=Duration(sec=0, nanosec=200000000)),
-        #     AudioNote(frequency=466, max_runtime=Duration(sec=0, nanosec=200000000)),
-        #     AudioNote(frequency=494, max_runtime=Duration(sec=0, nanosec=200000000)),
-        #     AudioNote(frequency=523, max_runtime=Duration(sec=1, nanosec=0))
-        # ]
-
-        # zelda's lullaby
-        # notes = [
-        #     AudioNote(frequency=493, max_runtime=Duration(sec=1, nanosec=200000000)),
-        #     AudioNote(frequency=587, max_runtime=Duration(sec=0, nanosec=500000000)),
-        #     AudioNote(frequency=440, max_runtime=Duration(sec=1, nanosec=200000000)),
-
-        #     AudioNote(frequency=392, max_runtime=Duration(sec=0, nanosec=300000000)),
-        #     AudioNote(frequency=440, max_runtime=Duration(sec=0, nanosec=300000000)),
-
-        #     AudioNote(frequency=493, max_runtime=Duration(sec=1, nanosec=200000000)),
-        #     AudioNote(frequency=587, max_runtime=Duration(sec=0, nanosec=500000000)),
-        #     AudioNote(frequency=440, max_runtime=Duration(sec=1, nanosec=200000000))
-        # ]
-
-        note_sequence = AudioNoteVector()
-        note_sequence.notes = notes
-        cur_goal.iterations = 1
-        cur_goal.note_sequence = note_sequence
-        self.send_goal(AudioNoteSequence, 'audio_note_sequence', cur_goal)
+        
+        # self.send_music_goal(docked_sound_notes)
+        music_player.send_music_goal('docked')
 
 def main():    
     roomba = MyNode(namespace)
     
 
-    exec = MultiThreadedExecutor(3)
+    exec = MultiThreadedExecutor(4)
     exec.add_node(roomba)
     exec.add_node(docker)
+    exec.add_node(music_player)
 
     keycom = KeyCommander([
-        (KeyCode(char='s'), roomba.drive),
+        (KeyCode(char='a'), roomba.drive),
     ])
-    print("'s' to start")
+    print("'a' to start")
     # roomba.drive()
     
     try:
@@ -258,8 +224,9 @@ def main():
         print('KeyboardInterrupt, shutting down.')
         print("Shutting down executor")
         exec.shutdown()
-        print("Destroying Monster Node")
-        m.destroy_node()
+        print("Destroying Node")
+        roomba.destroy_node()
+        docker.destroy_node()
         print("Shutting down RCLPY")
         rclpy.try_shutdown()
 
