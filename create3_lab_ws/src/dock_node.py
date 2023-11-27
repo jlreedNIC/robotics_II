@@ -5,7 +5,7 @@
 # @date     Nov 26, 2023
 # @class    Robotics
 
-# @desc     Node to dock the create3 without an action.
+# @desc     Node to dock the create3 without an action. Does not work properly.
 #
 #
 # ------------------------------------------
@@ -26,13 +26,7 @@ import numpy as np
 
 
 class Docker(Node):
-    """ A class that will create a single node, and reuse a single action client, to move a robot.
-    """
     def __init__(self, namespace:str):
-        """Initializes MyNode class with a given namespace. Has a single action client
-
-        :param str namespace: what the namespace of robot is
-        """
         # call superclass init
         super().__init__('docker')
 
@@ -60,7 +54,7 @@ class Docker(Node):
         try:
             self._opcode = msg.opcode
             self._sensor = msg.sensor
-            print(msg)
+            # print(msg)
         except Exception as e:
             # print('not iropcode')
             pass
@@ -73,17 +67,9 @@ class Docker(Node):
             pass
         # print(f'is docked: {self._is_docked}, dock visible: {self._dock_visible}, opcode: {self._opcode}, sensor: {self._sensor}')
     
-    def publish_msg(self, data):
-        msg = String()
-        msg.data = f'{data}'
-        # print(msg)
-        # print(type(msg))
-        self.vel_pub.publish(data)
-    
     def create_twist(self, linear, angular):
-        # print('creating twist...')
-        # msg_type = "geometry_msgs/msg/Twist"
-        # msg = f'"{{linear: {{x: {float(linear)}, y: 0.0, z: 0.0}}, angular: {{x: 0.0, y: 0.0, z: {float(angular)}}}}}"'
+        """Creates a twist object with a given x:linear and z:angular value. These are the values that will move the create3.
+        """
         twist = Twist()
         twist.linear.x = float(linear)
         twist.linear.y = 0.0
@@ -92,76 +78,136 @@ class Docker(Node):
         twist.angular.y = 0.0
         twist.angular.z = float(angular)
         return twist
-
-        # return f'{msg_type} {msg}' 
-
-    def reset_var(self):
-        self._sensor = -1
-        self._opcode = -1
-    
+  
     def scan_for_dock(self):
+        """Scans for the dock using the ir opcodes. Tries to handle many cases.
+
+        :return True or False: Did the robot find the dock with it's 'eyes' or sensor 1
+        """
         print('scanning for dock...')
 
-        # opcodes = []
-        # sensors = []
+        # do twice
         for j in range(2):
+            print(f'starting {j} round')
+
+            # store what robot has seen
             opc = {}
 
             # do a full 360 scan
             for i in range(13):
                 twist = self.create_twist(0, 1)
-                self.publish_msg(twist)
+                self.publish(twist)
                 
                 time.sleep(.5)
                 if self._opcode not in opc.keys():
                     opc[self._opcode] = [self._sensor]
                 elif self._sensor not in opc[self._opcode]:
                     opc[self._opcode].append(self._sensor)
-                    # opcodes.append(self._opcode)
-                    # sensors.append(self._sensor)
-        
-            # arg = np.argmax(opcodes)
-            # best_opcode = opcodes[arg]
-            # best_sensor = sensors[arg]
 
             best_opcode = max(opc.keys())
             best_sensor = max(opc[best_opcode])
+
+            if best_opcode == 172 and best_sensor == 0:
+                opc.pop(172)
+
+                best_opcode = max(opc.keys())
+                best_sensor = max(opc[best_opcode])
 
             print(f'best opcode: {best_opcode}, best_sensor: {best_sensor}')
             
             if best_opcode == -1:
                 print('Dock not found.')
                 return False
+            
             elif (best_opcode == 168 or best_opcode == 164) and best_sensor == 1:
                 print('Red or Green buoy detected in eyesight.')
                 # move forward for set time
                 # then rotate to find both red and green in eyesight
+                while self._opcode != best_opcode or self._sensor != best_sensor:
+                    twist = self.create_twist(0, 1)
+                    self.publish(twist)
+                    time.sleep(.5)
                 return True
+            
+            elif best_opcode == 172 and best_sensor == 1:
+                # rotate until 172 in eyes
+                print('putting buoys in eyesight.')
+                while True: # self._sensor != 1 and self._opcode != 172:
+                    twist = self.create_twist(0, 1)
+                    self.publish(twist)
+                    time.sleep(.5)
+
+                    if self._sensor == 1 and self._opcode == 172:
+                        break
+                return True
+
             elif best_opcode == 161 and best_sensor == 1:
                 print('force field found in eye sight. Commence movement to better see dock.')
+
                 # rotate until force field found
-                # reverse rotate and move forward (move backward)
+                while self._opcode != best_opcode and self._sensor != best_sensor:
+                    twist = self.create_twist(0, 1)
+                    self.publish(twist)
+                    time.sleep(.5)
+
+                # reverse rotate and move forward 
+                for i in range(2):
+                    twist = self.create_twist(0, -1)
+                    self.publish(twist)
+                    time.sleep(.5)
+                
+                # move forward
+                for i in range(2):
+                    twist = self.create_twist(1,0)
+                    self.publish(twist)
+                    time.sleep(.5)
+
             elif best_opcode == 161 and best_sensor == 0:
                 print('Only force field found in personal bubble. Commence movement to try and find dock again.')
+
                 # rotate until force field found
+                while self._opcode != best_opcode and self._sensor != best_sensor:
+                    twist = self.create_twist(0, 1)
+                    self.publish(twist)
+                    time.sleep(.5)
+
                 # rotate 90 and move forward
+                for i in range(6):
+                    twist = self.create_twist(0, 1)
+                    self.publish(twist)
+                    time.sleep(.5)
+
                 # search again
-            elif best_opcode == 168 or best_opcode == 164 and best_sensor == 0:
+            elif (best_opcode == 168 or best_opcode == 164) and best_sensor == 0:
                 print('red or green found in personal space. Back up and try again.')
+
                 # rotate until opcode is found again
+                while self._opcode != best_opcode and self._sensor != best_sensor:
+                    twist = self.create_twist(0, 1)
+                    self.publish(twist)
+                    time.sleep(.5)
+
+                print(f'opcode {self._opcode} sensor {self._sensor} found. moving backwards now.')
                 # move backwards
+                for i in range(2):
+                    twist = self.create_twist(-1, 0)
+                    self.publish(twist)
+                    time.sleep(.5)
+
                 # try again
-        
-        # search one more time
-        # if red or green found in eyesight, return true
-        # else return false
-        
+            print(opc)
+        return False
 
     def dock(self):
+        """Complete the docking action. Starts by scanning for the dock, then trying to move in the appropriate way.
+
+        :return True or False: whether or not docking completed
+        """
         print('starting pub/sub dock...')
 
         result = self.scan_for_dock()
         time.sleep(.5)
+        print(result)
         if result == False:
             return False
         # else dock in eyesight
@@ -169,54 +215,38 @@ class Docker(Node):
         print(f'opcode: {self._opcode}, sensor: {self._sensor}')
         time.sleep(2)
 
-        # print('wiggle')
-        # # generalize the if statements for wiggle
-        # buoy_found = self._opcode
-        # print(f'starting with {buoy_found} buoy')
-        # for i in range(2):
-        #     print(f'{i}: rotate towards gray')
-        #     while self._opcode != 161 or self._opcode != 172: # or self._sensor != 1:
-        #         twist = self.create_twist(0, 1)
-        #         self.publish_msg(twist)
-        #         time.sleep(.5)
-            
-        #     print(f'   rotate towards {buoy_found}')
-        #     while self._opcode != buoy_found or self._opcode != 172: # or self._sensor != 1:
-        #         twist = self.create_twist(0, -1)
-        #         self.publish_msg(twist)
-        #         time.sleep(.5)
-        # print(f'opcode: {self._opcode}, sensor: {self._sensor}')
-
-        # # move forward until in front of dock
-        # print('moving in front of dock')
-        # while self._opcode != 172:
-        #     twist = self.create_twist(1, 0)
-        #     self.publish_msg(twist)
-        #     time.sleep(.5)
+        print('sleep done')
+        if self._opcode == 164 or self._opcode == 168:
+            print('see green or red and moving forward then rotating')
+            # move forward for short time
+            for i in range(2):
+                twist = self.create_twist(1,0)
+                self.publish(twist)
+                time.sleep(.5)
         
-        # self.reset_var()
-        
-        # # rotate until sensor 1 and both
-        # print('rotating to face dock')
-        # while self._sensor != 1 and self._opcode != 172:
-        #     twist = self.create_twist(0, 1)
-        #     self.publish_msg(twist)
-        #     time.sleep(.5)
+            while self._opcode != 172 or self._opcode != 173:
+                twist = self.create_twist(0,1)
+                self.publish(twist)
+                time.sleep(.5)
 
-        
-        
-        # # move forward slowly until in front of docking station
-        # # this logic may need changed
-        # # while sensor 0 and force field don't intersect OR
-        # # sensor 0 doesn't read both buoys
-        # while (self._opcode != 161 and self._sensor != 0) or (self._sensor != 0 and self._opcode != 172):
-        #     # move forward slowly 
-        #     pass
+        # ready to dock
+        if self._opcode == 172 and self._sensor == 1:
+            print('---DOCKING---')
+            while self._is_docked == False or self._opcode != 173:
+                linear = .5
+                angular = 0
 
-        # # rotate until sensor 1 and both buoy lined up
-        # while self._opcode != 172 and self._sensor != 1:
-        #     # rotate
-        #     pass
+                # rotate values need tested
+                if self._opcode == 164:
+                    angular = 1
+                elif self._opcode == 168:
+                    angular = -1
+                
+                twist = self.create_twist(linear, angular)
+                self.publish(twist)
+                time.sleep(1)
+            return True
 
-        # move forward until dock not visible and is docked true
+        return False
+        
         
