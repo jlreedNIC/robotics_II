@@ -5,7 +5,7 @@
 # @date     Nov, 2023
 # @class    Robotics
 
-# @desc     This program will send goals to the Create3 robot.
+# @desc     This program will send goals to the Create3 robot, playing music and moving the robot.
 #
 # ------------------------------------------
 
@@ -15,22 +15,15 @@ import rclpy
 from rclpy.node import Node
 from rclpy.action.client import ActionClient
 
-
-# from rclpy.qos import qos_profile_sensor_data
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
-
-# import irobot_create_msgs
-from irobot_create_msgs.action import DriveDistance, Undock, Dock, RotateAngle, NavigateToPosition
-from irobot_create_msgs.action import AudioNoteSequence
-from irobot_create_msgs.msg import AudioNote, AudioNoteVector
-from builtin_interfaces.msg import Duration
-from music_node import Music
-
 from threading import RLock
 from rclpy.executors import MultiThreadedExecutor
-from dock_node import Docker
 from key_commander import KeyCommander
 from pynput.keyboard import KeyCode
+
+from irobot_create_msgs.action import DriveDistance, Undock, Dock, RotateAngle, NavigateToPosition
+from music_node import Music
+from dock_node import Docker
 
 from action_msgs.msg import GoalStatus
 
@@ -82,11 +75,11 @@ class MyNode(Node):
         """
         if callback_group == None:
             callback_group = self.cb_action
+
+        # play music depending on the type of action
         if action_type == Undock:
-            # self.send_music_goal(undock_sound_notes)
             music_player.send_music_goal('undock')
         elif action_type == Dock:
-            # self.send_music_goal(docking_sound_notes)
             music_player.send_music_goal('docking')
 
         self.get_logger().info(f"Sending goal for '{action_name}'")
@@ -108,8 +101,7 @@ class MyNode(Node):
 
         # spin node until done
         self.result = None
-        while self.result == None: # and action_type != AudioNoteSequence:
-            # rclpy.spin_once(self)
+        while self.result == None: 
             pass
 
         # goal done
@@ -149,18 +141,16 @@ class MyNode(Node):
         else:
             self.get_logger().error(f"Goal Failed with status: {status}")
         
+        # get current position after goal done. used mainly for setting home position
         try:
-            # pos = DriveDistance.Result.pose
             self.pose = future.result().pose
-            
-            # print(f'current pose: ({self.pose.pose.position.x}, {self.pose.pose.position.y})')
         except Exception as e:
-            # print(f"error getting pose: {e}")
             pass
     
     def drive(self):
         print('entered drive function')
         self._reset_pose.call(self.req) # reset pose
+
         # undock
         cur_goal = Undock.Goal()
         self.send_goal(Undock, 'undock', cur_goal)
@@ -170,12 +160,12 @@ class MyNode(Node):
         cur_goal.distance = 1.0
         self.send_goal(DriveDistance, 'drive_distance', cur_goal)
 
+        # set home position
         self.home = self.pose
         self.home.pose.position.x -= .5
 
+        # turn a random angle
         angle = random.uniform(-3.14, 3.14)
-
-        # turn 45deg
         cur_goal = RotateAngle.Goal()
         cur_goal.angle = float(angle)
         self.send_goal(RotateAngle, 'rotate_angle', cur_goal)
@@ -185,6 +175,7 @@ class MyNode(Node):
         cur_goal.distance = 0.5
         self.send_goal(DriveDistance, 'drive_distance', cur_goal)
 
+        # go back to home position
         goal = NavigateToPosition.Goal()
         goal.goal_pose = self.home
         self.send_goal(NavigateToPosition, 'navigate_to_position', goal)
@@ -200,7 +191,6 @@ class MyNode(Node):
         cur_goal = Dock.Goal()
         self.send_goal(Dock, 'dock', cur_goal)
         
-        # self.send_music_goal(docked_sound_notes)
         music_player.send_music_goal('docked')
 
 def main():    
@@ -216,7 +206,6 @@ def main():
         (KeyCode(char='a'), roomba.drive),
     ])
     print("'a' to start")
-    # roomba.drive()
     
     try:
         exec.spin() # execute callbacks until shutdown or destroy is called
@@ -224,7 +213,7 @@ def main():
         print('KeyboardInterrupt, shutting down.')
         print("Shutting down executor")
         exec.shutdown()
-        print("Destroying Node")
+        print("Destroying Nodes")
         roomba.destroy_node()
         docker.destroy_node()
         print("Shutting down RCLPY")
