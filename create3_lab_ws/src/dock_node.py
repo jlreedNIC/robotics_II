@@ -4,26 +4,19 @@
 # @author   Jordan Reed
 # @date     Nov 26, 2023
 # @class    Robotics
-
-# @desc     Node to dock the create3 without an action. Does not work properly.
 #
+# @desc     Node to dock the create3 without an action. Does not work properly.
 #
 # ------------------------------------------
 
-import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 
-from std_msgs.msg import String
 from geometry_msgs.msg import Twist
 
-import irobot_create_msgs
-from irobot_create_msgs.msg import DockStatus, IrIntensity, IrIntensityVector, IrOpcode
+from irobot_create_msgs.msg import DockStatus, IrOpcode
 import time
 from nav_msgs.msg import Odometry
-
-import numpy as np
-
 
 class Docker(Node):
     def __init__(self, namespace:str):
@@ -248,5 +241,3 @@ class Docker(Node):
             return True
 
         return False
-        
-        
