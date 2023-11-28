@@ -4,17 +4,14 @@
 # @author   Jordan Reed
 # @date     Nov 26, 2023
 # @class    Robotics
-
-# @desc     Node to play music
 #
+# @desc     Node to play music on Create3
 #
 # ------------------------------------------
 
-import rclpy
 from rclpy.node import Node
 from rclpy.action.client import ActionClient
 
-import irobot_create_msgs
 from irobot_create_msgs.action import AudioNoteSequence
 from irobot_create_msgs.msg import AudioNote, AudioNoteVector
 from builtin_interfaces.msg import Duration
@@ -29,6 +26,8 @@ class Music(Node):
 
         print(f"Constructing '{namespace}' music node.")
         self._namespace = namespace
+
+        # mario start up
         self.undock_sound_notes = [
             AudioNote(frequency=659, max_runtime=Duration(sec=0, nanosec=250000000)),
             AudioNote(frequency=659, max_runtime=Duration(sec=0, nanosec=250000000)),
@@ -43,14 +42,17 @@ class Music(Node):
             AudioNote(frequency=392, max_runtime=Duration(sec=0, nanosec=300000000))
         ]
 
+        # jaws music
+        # test. Changed rest to be same length as long note instead of short note
         self.docking_sound_notes = [
             AudioNote(frequency=82, max_runtime=Duration(sec=0, nanosec=500000000)),
             AudioNote(frequency=87, max_runtime=Duration(sec=0, nanosec=250000000)),
-            AudioNote(frequency= 0, max_runtime=Duration(sec=0, nanosec=250000000)),
+            AudioNote(frequency= 0, max_runtime=Duration(sec=0, nanosec=500000000)),
             AudioNote(frequency=82, max_runtime=Duration(sec=0, nanosec=500000000)),
             AudioNote(frequency=87, max_runtime=Duration(sec=0, nanosec=250000000))
         ]
 
+        # zelda chest opening
         self.docked_sound_notes = [
             AudioNote(frequency=440, max_runtime=Duration(sec=0, nanosec=200000000)),
             AudioNote(frequency=466, max_runtime=Duration(sec=0, nanosec=200000000)),
@@ -127,10 +129,7 @@ class Music(Node):
             self.get_logger().error(f"Goal Failed with status: {status}")
         
         try:
-            # pos = DriveDistance.Result.pose
             self.pose = future.result().pose
-            
-            # print(f'current pose: ({self.pose.pose.position.x}, {self.pose.pose.position.y})')
         except Exception as e:
             # print(f"error getting pose: {e}")
             pass
