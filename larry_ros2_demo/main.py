@@ -11,10 +11,19 @@
 import rclpy
 from ros2_node import MyNode
 
-#def random_joint(joint_range):
 import random
 
 def get_random_position(j1:list, j2:list, j3:list, j4:list, j5:list, j6:list):
+    """Generate a random joint position within the ranges given.
+
+    :param list j1: minimum and maximum of joint 1
+    :param list j2: minimum and maximum of joint 2
+    :param list j3: minimum and maximum of joint 3
+    :param list j4: minimum and maximum of joint 4
+    :param list j5: minimum and maximum of joint 5
+    :param list j6: minimum and maximum of joint 6
+    :return _type_: list of joint positions to pass to robot
+    """
     if len(j1) != 2 and len(j2) != 2 and len(j3) != 2 and len(j4) != 2 and len(j5) != 2 and len(j6) != 2:
         print('All ranges must be of length 2.')
         return
@@ -33,12 +42,22 @@ def get_random_position(j1:list, j2:list, j3:list, j4:list, j5:list, j6:list):
 def larry_jab(larry_node:MyNode):
     print(f'send goal to perform the "jab" move')
 
-    arm_up = [-103.6, 34.7, 77.1, -189.8, -10.8, 0.7]
-    arm_down = [-103.6, 82.8, 23.3, -181.3, -10.8, 0.7]
+    # coordinates of 'jab' movement
+    # arm_up = [-103.6, 34.7, 77.1, 20.0, -10.8, 0.7]
+    # arm_down = [-103.6, 82.8, 77.1, 20.0, -10.8, 0.7]
 
-    for i in range(4):
-        larry_node.send_joint_pose_goal(arm_up)
-        larry_node.send_joint_pose_goal(arm_down)
+    # for i in range(2):
+    #     larry_node.send_joint_pose_goal(arm_up)
+    #     larry_node.send_joint_pose_goal(arm_down)
+
+    # relatively same code as above but in joint offset movements
+    for i in range(2):
+        larry_node.send_joint_offset_goal(2, -10)
+
+        larry_node.send_joint_offset_goal(2, 10)
+        larry_node.send_joint_offset_goal(2, 10)
+    
+    print('jab move done')
 
 def larry_swinging_nod(larry_node:MyNode):
     print('send goal to make larry do the "swinging nod" move')
@@ -61,19 +80,35 @@ def larry_wave(larry_node:MyNode):
     print('send goal to larry to do a wave')
 
     for i in range(4):
-        larry_node.send_joint_offset_goal(5, 20)
-        larry_node.send_joint_offset_goal(5, -20)
+        larry_node.send_joint_offset_goal(3, 10)
+        larry_node.send_joint_offset_goal(3, 10)
+        larry_node.send_joint_offset_goal(3, -10)
+        larry_node.send_joint_offset_goal(3, -10)
 
 def larry_sprinkler(larry_node:MyNode):
     print('send goal to make larry do the sprinkler')
+    print('not currently implemented')
 
 def larry_disco(larry_node:MyNode):
     print('send goal to make larry do disco moves')
+    print('not currently implemented')
+
+def go_home(larry_node:MyNode):
+    """Send larry to custom defined home position by one joint move at a time
+
+    :param MyNode larry_node: Node corresponding to Larry's movements
+    """
+    joint_home = [-95.8, 48.7, 40.6, 5.0, -8.6, 0.7]
+
+    for i in range(0, len(joint_home)):
+        print(f'doing joint {i+1} - {joint_home[i]}')
+        larry_node.send_joint_position_goal(i+1, joint_home[i])
 
 def main():
     rclpy.init()
     Larry = MyNode()
 
+    # unused code for random positions
     # positions
     j1_range = [-100,100]
     j2_range = [-100,100]
@@ -82,26 +117,31 @@ def main():
     j5_range = [-100,100]
     j6_range = [-100,100]
     joint_home = [-95.8, 48.7, 40.6, -169.3, -8.6, 0.7]
-    
-    first_move = get_random_position(j1_range, j2_range, j3_range, j4_range, j5_range, j6_range)
-    print(first_move)
 
-    # # attempt to make while loop better
-    # try:
-    #     # put robot move code here
-    #     pass
-    # except KeyboardInterrupt:
-    #     # ------
-    #     # reset robot
-    #     # ------
+    try:
+        # Larry.send_joint_pose_goal(joint_home)    # go back to home position by passing pose
+        # go_home(Larry)                            # go back home one joint at a time
 
-    #     print('KeyboardInterrupt, sending robot home and shutting down.')
+        # larry_jab(Larry)              # dance move
+        # larry_swinging_nod(Larry)     # dance move
+        # larry_wave(Larry)             # dance move
+        print('done')
+        
+        go_home(Larry)                              # back to home
+        # Larry.send_joint_pose_goal(joint_home)    # go back to home position
+        pass
+    except KeyboardInterrupt:
+        # ------
+        # reset robot
+        # ------
 
-    #     Larry.send_joint_pose_goal(joint_home)   # go back to home position
+        print('KeyboardInterrupt, sending robot home and shutting down.')
 
-    #     # shut down node
-    #     Larry.destroy_node()
-    #     rclpy.shutdown()
+        # Larry.send_joint_pose_goal(joint_home)   # go back to home position
+
+        # shut down node
+        Larry.destroy_node()
+        rclpy.shutdown()
 
 
 if __name__ == '__main__':
