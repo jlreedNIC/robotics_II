@@ -13,7 +13,10 @@ from rclpy.action.client import ActionClient
 from action_msgs.msg import GoalStatus
 
 # fanuc specific code
-from fanuc_ros2_drivers.fanuc_ros2_interfaces.action import ShunkGripper, WriteJointOffset, WriteJointPose, WriteJointPosition
+import sys
+sys.path.append("larry_ros2_demo/fanuc_ros2_drivers")
+# from fanuc_ros2_drivers.fanuc_ros2_interfaces.action import WriteJointOffset, WriteJointPose, WriteJointPosition
+from fanuc_ros2_interfaces.action import WriteJointOffset, WriteJointPose, WriteJointPosition
 
 
 class MyNode(Node):
@@ -59,6 +62,17 @@ class MyNode(Node):
         goal.joint = joint
         goal.value = float(value)
         self.send_goal(WriteJointOffset, "WriteJointOffset", goal)
+    
+    def send_joint_position_goal(self, joint:int, value):
+        """Function to more easily send a goal of write joint offset
+
+        :param int joint: which joint to affect
+        :param _type_ value: how much to offset joint by, should be float
+        """
+        goal = WriteJointPosition.Goal()
+        goal.joint = joint
+        goal.value = float(value)
+        self.send_goal(WriteJointPosition, "WriteJointPosition", goal)
 
     def send_goal(self, action_type, action_name:str, goal):
         """Sets the action client and sends the goal to the robot. Spins node until result callback is received.
